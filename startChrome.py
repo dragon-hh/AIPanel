@@ -1,16 +1,21 @@
 import subprocess
+import os
+
 chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-# 拆分参数为列表（避免空格解析错误，subprocess 推荐列表形式）
+# Check if file exists
+if not os.path.exists(chrome_path):
+    print(f"Error: Chrome not found at {chrome_path}")
+    exit(1)
+
 cmd_args = [
-chrome_path,
+    chrome_path,
     "--remote-debugging-port=9222",
     r"--user-data-dir=C:\sel_chrome_profile"
 ]
+
+print(f"Launching: {cmd_args}")
 process = subprocess.Popen(
     cmd_args,
-    stdout=subprocess.PIPE,  # 屏蔽控制台输出（可选）
-    stderr=subprocess.PIPE,
-    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP  # Windows 下独立进程组
+    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
 )
-print(f"Chrome 已启动，进程ID：{process.pid}")
-print(f"调试端口：9222，用户数据目录：C:\\sel_chrome_profile")
+print(f"Chrome launched with PID: {process.pid}")

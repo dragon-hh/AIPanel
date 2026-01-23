@@ -409,6 +409,202 @@
         return results;
     }
 
+    function normalizeText(value) {
+        return (value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    let aiStudioOutlineCache = [];
+    let aiStudioOutlineCollecting = false;
+
+    function getAiStudioChatBlocks() {
+        // 1. Target chat turns
+        const turns = Array.from(document.querySelectorAll('ms-chat-turn'));
+        const blocks = [];
+        const seen = new Set();
+
+        turns.forEach(turn => {
+            // Check if it's a user turn
+            const userContainer = turn.querySelector('.chat-turn-container.user, .user-prompt-container');
+            if (!userContainer) return;
+
+            // Try to find text content
+            // Strategy 1: Look for ms-cmark-node (markdown content)
+            let textEl = turn.querySelector('ms-cmark-node');
+            
+            // Strategy 2: Look for turn-content
+            if (!textEl) {
+                textEl = turn.querySelector('.turn-content');
+            }
+
+            // Strategy 3: Look for textarea (if editing)
+            if (!textEl) {
+                textEl = turn.querySelector('textarea');
+            }
+            
+            // Strategy 4: Fallback to container text (might be "edit" etc, so be careful)
+            let text = '';
+            if (textEl) {
+                text = textEl.innerText || textEl.textContent;
+            } else {
+                 // Try deep search for text nodes
+                 text = userContainer.innerText;
+            }
+
+            // Cleanup text
+            text = normalizeText(text);
+            
+            // Filter out system UI text like "edit", "more_vert" if that's all there is
+            if (text === 'edit more_vert' || text === 'edit' || text === 'more_vert') {
+                // Try to find the actual content sibling or child that is NOT the toolbar
+                // This is hard without specific selector. 
+                // Let's assume ms-cmark-node is the key.
+                return; 
+            }
+
+            if (!text || text.length < 1) return;
+            if (seen.has(text)) return;
+
+            const proxy = document.createElement('div');
+            proxy.innerText = text;
+            proxy.__aiPanelTarget = userContainer; // Scroll to container
+            proxy.__aiPanelLabel = text;
+            blocks.push(proxy);
+            seen.add(text);
+        });
+
+        return blocks;
+    }
+
+    function getAiStudioPromptLinkBlocks() {
+        // 1. Direct check for known native structure (Stable & Fast)
+        // Structure: ms-prompt-history-v3 ... li.prompt-link-wrapper > a.prompt-link
+        // We use a broad selector first to catch them all
+        const directLinks = Array.from(document.querySelectorAll('ms-prompt-history-v3 a.prompt-link, .prompt-link, a[href^="/prompts/"]'));
+        
+        let elements = directLinks;
+        
+        // 2. If nothing found, try queryAllDeep as fallback
+        if (elements.length === 0) {
+             elements = queryAllDeep('.prompt-link, .prompt-link-wrapper, [class*="prompt-link"]');
+        }
+        
+        const blocks = [];
+        const seen = new Set();
+        elements.forEach(el => {
+            // Priority: aria-label -> title -> textContent
+            // Note: Sometimes the text is inside a child span or div
+            const label = normalizeText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+            
+            if (!label || label.length < 1 || label.length > 200) return;
+            if (!/[a-zA-Z0-9\u4e00-\u9fa5]/.test(label)) return;
+            if (seen.has(label)) return;
+            
+            const proxy = document.createElement('div');
+            proxy.innerText = label;
+            proxy.__aiPanelTarget = el; // Store reference to original element
+            proxy.__aiPanelLabel = label;
+            
+            // Ensure click works by finding the clickable ancestor if needed
+            // For AI Studio, the <a> tag itself is clickable
+            
+            blocks.push(proxy);
+            seen.add(label);
+        });
+        return blocks;
+    }
+
+    function extractAiStudioOutlineLabels(container) {
+        const excluded = new Set([
+            'menu', 'settings', 'share', 'copy', 'edit', 'delete', 'rename', 'pin', 'unpin',
+            'close', 'open', 'help', 'feedback', 'history', 'model', 'models', 'new', 'save',
+            'cancel', 'ok', 'yes', 'no', 'next', 'previous', 'back', 'forward'
+        ]);
+        const items = Array.from(container.querySelectorAll('[aria-label],[title]'));
+        const labels = [];
+        items.forEach(el => {
+            const label = normalizeText(el.getAttribute('aria-label') || el.getAttribute('title'));
+            if (!label || label.length < 3 || label.length > 200) return;
+            if (!/[a-zA-Z0-9\u4e00-\u9fa5]/.test(label)) return;
+            if (excluded.has(label.toLowerCase())) return;
+            const role = (el.getAttribute('role') || '').toLowerCase();
+            if (role && !['button', 'listitem', 'menuitem', 'option', 'tab'].includes(role)) return;
+            labels.push({ label, el });
+        });
+        return labels;
+    }
+
+    function getAiStudioOutlineContainer() {
+        const containerSelectors = '[role="list"], [role="menu"], [role="listbox"], [role="tablist"], [role="navigation"]';
+        const containers = queryAllDeep(containerSelectors);
+        let best = null;
+        containers.forEach(container => {
+            const labels = extractAiStudioOutlineLabels(container);
+            if (labels.length < 2) return;
+            const avgLen = labels.reduce((sum, item) => sum + item.label.length, 0) / labels.length;
+            const score = labels.length * 10 + avgLen;
+            if (!best || score > best.score) best = { container, labels, score };
+        });
+        return best;
+    }
+
+    function mergeAiStudioOutlineCache(labels) {
+        const existing = new Set(aiStudioOutlineCache);
+        labels.forEach(({ label }) => {
+            if (!existing.has(label)) {
+                existing.add(label);
+                aiStudioOutlineCache.push(label);
+            }
+        });
+    }
+
+    function buildAiStudioOutlineProxies(labels) {
+        const blocks = [];
+        const seen = new Set();
+        labels.forEach(({ label, el }) => {
+            if (seen.has(label)) return;
+            const proxy = document.createElement('div');
+            proxy.innerText = label;
+            proxy.__aiPanelTarget = el;
+            proxy.__aiPanelLabel = label;
+            blocks.push(proxy);
+            seen.add(label);
+        });
+        return blocks;
+    }
+
+    function getAiStudioOutlineBlocks() {
+        const best = getAiStudioOutlineContainer();
+        if (!best) return [];
+        mergeAiStudioOutlineCache(best.labels);
+        return buildAiStudioOutlineProxies(best.labels);
+    }
+
+    function startAiStudioOutlineCollector() {
+        if (aiStudioOutlineCollecting) return;
+        const best = getAiStudioOutlineContainer();
+        if (!best || !best.container) return;
+        const container = best.container;
+        aiStudioOutlineCollecting = true;
+        let idleCount = 0;
+        const step = Math.max(80, Math.floor(container.clientHeight * 0.8));
+        const run = () => {
+            const labels = extractAiStudioOutlineLabels(container);
+            const before = aiStudioOutlineCache.length;
+            mergeAiStudioOutlineCache(labels);
+            if (aiStudioOutlineCache.length === before) idleCount += 1;
+            else idleCount = 0;
+            const nearEnd = container.scrollTop + container.clientHeight >= container.scrollHeight - 2;
+            if (nearEnd || idleCount >= 3) {
+                container.scrollTop = 0;
+                aiStudioOutlineCollecting = false;
+                return;
+            }
+            container.scrollTop = Math.min(container.scrollTop + step, container.scrollHeight);
+            setTimeout(run, 200);
+        };
+        run();
+    }
+
     function getLmarenaBlocks() {
         const list = Array.from(document.querySelectorAll('ol')).find(el => {
             const cls = (el.className || '').toString();
@@ -431,7 +627,27 @@
             return getLmarenaBlocks();
         }
         if (currentSite === SITE_CONFIG.aistudio) {
-            let turns = queryAllDeep('.chat-turn-container.render.user, .chat-turn-container.user');
+            // 1. Priority: Chat questions (Current Session)
+            // If we are in a chat session, we want to show the questions of THIS session,
+            // NOT the global history list.
+            const isChatSession = !!document.querySelector('ms-chat-session');
+            
+            if (isChatSession) {
+                const chatBlocks = getAiStudioChatBlocks();
+                if (chatBlocks.length > 0) return chatBlocks;
+                
+                // If chat blocks are empty but we are in a session, try the deep query fallback
+                // specifically for chat turns.
+                // (The previous fallback logic was okay but getAiStudioChatBlocks should be better)
+            } else {
+                // 2. If NOT in a chat session (e.g. Home), show history.
+                const promptLinkBlocks = getAiStudioPromptLinkBlocks();
+                if (promptLinkBlocks.length > 0) return promptLinkBlocks;
+            }
+
+            // 3. Fallback: If we are in a session but getAiStudioChatBlocks failed, 
+            // try the old queryAllDeep method as a last resort for turns.
+             let turns = queryAllDeep('.chat-turn-container.render.user, .chat-turn-container.user');
             if (turns.length === 0) {
                 turns = queryAllDeep('[class*="chat-turn-container"][class*="user"]');
             }
@@ -452,13 +668,28 @@
                               t.querySelector('[data-message-author-role="user"]') ||
                               t.querySelector('p') ||
                               t;
+                // If t is the container and we found a chunk, use the chunk's text?
+                // Actually the loop below in refreshNav uses innerText.
                 if (chunk && !seenBlocks.has(chunk)) {
                     seenBlocks.add(chunk);
                     blocks.push(chunk);
                 }
             });
+            
             if (blocks.length > 0) return blocks;
-            return Array.from(document.querySelectorAll(SITE_CONFIG.aistudio.querySelector));
+            
+            // 4. If all else fails, AND we are NOT in a chat session (or desperate), show history
+            // But if isChatSession is true, we already skipped history.
+            // If we are here, it means we found NOTHING in the chat.
+            // Maybe it's better to show history than nothing?
+            // The user said "Directory is empty" is a problem.
+            // But they also said "Shows history" is a problem.
+            // Let's stick to: In chat -> Questions only. Home -> History.
+            
+            if (!isChatSession) {
+                 return Array.from(document.querySelectorAll(SITE_CONFIG.aistudio.querySelector));
+            }
+            return [];
         }
         return Array.from(document.querySelectorAll(currentSite.querySelector));
     }
@@ -476,7 +707,7 @@
         panelNav.replaceChildren();
 
         blocks.forEach((block, index) => {
-            let content = block.innerText.replace(/\n+/g, ' ').trim();
+            let content = normalizeText(block.__aiPanelLabel || block.innerText || block.textContent);
             if (currentSite === SITE_CONFIG.aistudio) {
                 content = content.replace(/^User\s*/i, '').replace(/^edit\s*more_vert\s*/i, '').trim();
             }
@@ -492,6 +723,10 @@
                 e.stopPropagation();
                 const currentBlocks = getNavBlocks();
                 let targetBlock = currentBlocks[index];
+                if (currentSite === SITE_CONFIG.aistudio && targetBlock && targetBlock.__aiPanelTarget) {
+                    try { targetBlock.__aiPanelTarget.click(); } catch (e) {}
+                    targetBlock = targetBlock.__aiPanelTarget;
+                }
                 if (currentSite === SITE_CONFIG.aistudio && targetBlock) {
                     const parentTurn = targetBlock.closest('.chat-turn-container');
                     if (parentTurn) targetBlock = parentTurn;
