@@ -68,7 +68,7 @@ AI Panel 是一个用户脚本，你需要先在浏览器安装脚本管理器�
 - **Firefox**: 安装 Greasemonkey 或 Tampermonkey。
 
 ### 第二步：安装 AI Panel 脚本
-1.  **[点击这里安装脚本](#)** (将链接替换为你的实际发布链接，如 GreasyFork 或 GitHub Raw 链接)。
+1.  **[点击安装](https://github.com/dragon-hh/AIPanel/raw/refs/heads/main/aiPanel.user.js)**
 2.  在弹出的 Tampermonkey 页面中点击 **"安装"**。
 
 ### 第三步：开始使用
