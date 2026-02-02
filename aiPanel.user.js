@@ -789,13 +789,23 @@
 
     sidebar.addEventListener('mousedown', (e) => {
         const target = e.target;
+        // 排除交互元素和滚动条
         if (target.tagName === 'INPUT' || target.classList.contains('action-btn') || target.id === 'gemini-nav-lock') return;
+        
+        // 检查是否点击在滚动条上 (仅针对内容容器)
+        if (target.id === 'gemini-nav-content-wrapper') {
+            // 如果点击位置在 clientWidth 之外，说明是在滚动条上
+            if (e.offsetX > target.clientWidth || e.offsetY > target.clientHeight) return;
+        }
+
         startX = e.clientX; startY = e.clientY;
         initialLeft = sidebar.offsetLeft; initialTop = sidebar.offsetTop;
         initialWidth = sidebar.offsetWidth; initialHeight = sidebar.offsetHeight;
+
         if (target.classList.contains('resizer')) {
             activeResizer = target.dataset.pos; sidebar.classList.add('no-transition'); e.preventDefault();
-        } else if (target.closest('#gemini-nav-header') || sidebar.classList.contains('collapsed')) {
+        } else {
+            // 任意位置拖动
             isDragging = true; sidebar.classList.add('no-transition'); e.preventDefault();
         }
     });
