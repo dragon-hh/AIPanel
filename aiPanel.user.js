@@ -206,6 +206,63 @@
         .resizer-tr { top: 0; right: 0; cursor: ne-resize; }
         .resizer-bl { bottom: 0; left: 0; cursor: sw-resize; }
         .resizer-br { bottom: 0; right: 0; cursor: se-resize; }
+
+        /* --- Dark Mode --- */
+        #gemini-nav-sidebar.theme-dark {
+            background: #1e1e1e !important;
+            border-color: #444;
+            color: #e3e3e3;
+        }
+        #gemini-nav-sidebar.theme-dark .gemini-nav-item { color: #e3e3e3; }
+        #gemini-nav-sidebar.theme-dark .gemini-nav-item:hover { background: #333; }
+        #gemini-nav-sidebar.theme-dark .gemini-nav-item:hover .item-text { color: #8ab4f8; }
+        #gemini-nav-sidebar.theme-dark #gemini-nav-tabs { background: #2c2c2c; }
+        #gemini-nav-sidebar.theme-dark .nav-tab { color: #9aa0a6; }
+        #gemini-nav-sidebar.theme-dark .nav-tab.active { color: #8ab4f8; background: #3c4043; }
+        #gemini-nav-sidebar.theme-dark #gemini-nav-search-input { background: #2c2c2c; color: #e3e3e3; }
+        #gemini-nav-sidebar.theme-dark #gemini-nav-search-input:focus { background: #1e1e1e; border-color: #8ab4f8; }
+        #gemini-nav-sidebar.theme-dark #gemini-nav-lock { border-color: #444; background: #5f6368; }
+        #gemini-nav-sidebar.theme-dark #gemini-nav-lock.active { background: #8ab4f8; box-shadow: 0 0 0 1px #8ab4f8; }
+        #gemini-nav-sidebar.theme-dark .action-btn { background: rgba(60, 64, 67, 0.9); color: #e3e3e3; }
+        #gemini-nav-sidebar.theme-dark .action-btn:hover { background: #5f6368; }
+        #gemini-nav-sidebar.theme-dark .menu-line { background: #e3e3e3; }
+
+        /* --- Theme Modal --- */
+        #gemini-theme-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.5); z-index: 100000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .theme-modal-content {
+            background: #fff; padding: 24px; border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            text-align: center; font-family: 'Google Sans', sans-serif;
+            width: 300px;
+        }
+        .theme-modal-title { font-size: 18px; margin-bottom: 16px; color: #333; font-weight: 500; }
+        .theme-options { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
+        .theme-option {
+            flex: 1; padding: 12px; border: 2px solid #e3e3e3; border-radius: 12px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .theme-option:hover { border-color: #1a73e8; background: #f0f4f9; }
+        .theme-option.selected { border-color: #1a73e8; background: #e8f0fe; }
+        .theme-preview { width: 100%; height: 60px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #ddd; }
+        .theme-preview.light { background: #fff; }
+        .theme-preview.dark { background: #1e1e1e; }
+        .theme-btn {
+            background: #1a73e8; color: #fff; border: none; padding: 10px 24px;
+            border-radius: 20px; font-size: 14px; cursor: pointer; transition: 0.2s;
+        }
+        .theme-btn:hover { background: #1557b0; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+        #gemini-theme-toggle {
+            cursor: pointer; font-size: 14px; margin-right: 8px; user-select: none;
+            width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: 0.2s;
+        }
+        #gemini-theme-toggle:hover { background: rgba(0,0,0,0.05); }
+        #gemini-nav-sidebar.theme-dark #gemini-theme-toggle:hover { background: rgba(255,255,255,0.1); }
     `;
 
     const styleSheet = document.createElement("style");
@@ -226,9 +283,21 @@
 
     const header = document.createElement('div');
     header.id = 'gemini-nav-header';
+
+    const headerLeft = document.createElement('div');
+    headerLeft.style.display = 'flex';
+    headerLeft.style.alignItems = 'center';
+
+    const themeToggle = document.createElement('div');
+    themeToggle.id = 'gemini-theme-toggle';
+    themeToggle.textContent = '🌗';
+    themeToggle.title = '切换主题';
+
     const lockBtn = document.createElement('div');
     lockBtn.id = 'gemini-nav-lock';
     lockBtn.title = '点击切换：绿色为固定，灰色为自动隐藏';
+
+    headerLeft.append(themeToggle, lockBtn);
 
     const tabsContainer = document.createElement('div');
     tabsContainer.id = 'gemini-nav-tabs';
@@ -241,7 +310,7 @@
     tabFav.textContent = '收藏';
     tabFav.dataset.target = 'panel-fav';
     tabsContainer.append(tabNav, tabFav);
-    header.append(lockBtn, tabsContainer);
+    header.append(headerLeft, tabsContainer);
 
     const searchContainer = document.createElement('div');
     searchContainer.id = 'gemini-nav-search-container';
@@ -271,6 +340,71 @@
     document.body.appendChild(sidebar);
 
     // --- 3. 业务逻辑 (跨平台同步核心) ---
+
+    // 主题逻辑
+    let currentTheme = localStorage.getItem('gemini-nav-theme');
+    
+    function applyTheme(theme) {
+        currentTheme = theme;
+        localStorage.setItem('gemini-nav-theme', theme);
+        if (theme === 'dark') {
+            sidebar.classList.add('theme-dark');
+        } else {
+            sidebar.classList.remove('theme-dark');
+        }
+    }
+
+    themeToggle.onclick = (e) => {
+        e.stopPropagation();
+        applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    };
+
+    function showThemeModal() {
+        if (document.getElementById('gemini-theme-modal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'gemini-theme-modal';
+        modal.innerHTML = `
+            <div class="theme-modal-content">
+                <div class="theme-modal-title">🎨 选择你的主题风格</div>
+                <div class="theme-options">
+                    <div class="theme-option selected" data-value="light">
+                        <div class="theme-preview light"></div>
+                        <div>明亮 (默认)</div>
+                    </div>
+                    <div class="theme-option" data-value="dark">
+                        <div class="theme-preview dark"></div>
+                        <div>深色</div>
+                    </div>
+                </div>
+                <button class="theme-btn">确定</button>
+            </div>
+        `;
+        
+        let selected = 'light';
+        const options = modal.querySelectorAll('.theme-option');
+        options.forEach(opt => {
+            opt.onclick = () => {
+                options.forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                selected = opt.dataset.value;
+            };
+        });
+
+        modal.querySelector('.theme-btn').onclick = () => {
+            applyTheme(selected);
+            modal.remove();
+        };
+
+        document.body.appendChild(modal);
+    }
+
+    if (currentTheme) {
+        applyTheme(currentTheme);
+    } else {
+        // 首次使用，默认白色，但弹出选择
+        applyTheme('light'); 
+        showThemeModal();
+    }
 
     // 【数据迁移】将本地旧数据迁移到油猴全局存储，确保第一次使用不丢失数据
     const localLegacyData = JSON.parse(localStorage.getItem('gemini-favorites') || '[]');
