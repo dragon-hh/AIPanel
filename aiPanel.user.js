@@ -213,6 +213,13 @@
             border-color: #444;
             color: #e3e3e3;
         }
+        #gemini-nav-sidebar.theme-dark.collapsed:not([class*="snapped-"]),
+        #gemini-nav-sidebar.theme-dark.collapsed.snapped-left,
+        #gemini-nav-sidebar.theme-dark.collapsed.snapped-right {
+            background: #1e1e1e !important;
+            border-color: #444 !important;
+        }
+
         #gemini-nav-sidebar.theme-dark .gemini-nav-item { color: #e3e3e3; }
         #gemini-nav-sidebar.theme-dark .gemini-nav-item:hover { background: #333; }
         #gemini-nav-sidebar.theme-dark .gemini-nav-item:hover .item-text { color: #8ab4f8; }
