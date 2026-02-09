@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         AI 增强面板 (全平台同步版 - 修复 LMSYS)
 // @namespace    http://tampermonkey.net/
-// @version      4.1
+// @version      4.1.1
 // @description  为 Gemini、ChatGPT、Claude、LMSYS 添加历史对话索引、Prompt 收藏、智能隐藏，支持跨平台收藏互通，修复 LMSYS 目录生成问题。
 // @author       Chantec
 // @match        https://gemini.google.com/*
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
+// @match        https://arena.ai/*
+// @match        https://www.arena.ai/*
 // @match        https://lmarena.ai/*
 // @match        https://aistudio.google.com/*
 // @match        https://chat.lmsys.org/*
@@ -63,7 +65,7 @@
             }
         },
         lmarena: {
-            check: () => location.host.includes('lmarena.ai') || location.host.includes('lmsys.org'),
+            check: () => location.host.includes('arena.ai') || location.host.includes('lmarena.ai') || location.host.includes('lmsys.org'),
             // [修复] 扩充了选择器，覆盖 Gradio 不同版本的用户消息结构
             querySelector: '[data-testid="user"], .user, .message-user, [data-testid="user-message"], .chat-message-user',
             inputSelector: 'textarea[data-testid="textbox"], textarea',
