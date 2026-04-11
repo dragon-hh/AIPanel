@@ -174,6 +174,7 @@
         }
         .gemini-nav-item:hover .action-btn { opacity: 1; }
         .action-btn:hover { background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); transform: translateY(-50%) scale(1.1); }
+        .action-btn-left { right: 26px !important; }
 
         /* --- 收藏页新增/编辑 --- */
         .fav-add-btn {
@@ -536,7 +537,7 @@
             txt.textContent = fav.text;
             item.onclick = () => fillInput(fav.text);
             const editBtn = document.createElement('span');
-            editBtn.className = 'action-btn';
+            editBtn.className = 'action-btn action-btn-left';
             editBtn.textContent = '✏️';
             editBtn.onclick = (e) => { e.stopPropagation(); showFavEditModal(i); };
             const delBtn = document.createElement('span');
