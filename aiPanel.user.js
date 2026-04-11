@@ -175,6 +175,37 @@
         .gemini-nav-item:hover .action-btn { opacity: 1; }
         .action-btn:hover { background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); transform: translateY(-50%) scale(1.1); }
 
+        /* --- 收藏页新增/编辑 --- */
+        .fav-add-btn {
+            display: block; width: calc(100% - 16px); margin: 4px 8px; padding: 8px 12px;
+            font-size: 13px; color: #1a73e8; cursor: pointer; text-align: center;
+            border-radius: 12px; border: 1px dashed #1a73e8; background: transparent;
+            transition: background 0.2s;
+        }
+        .fav-add-btn:hover { background: #e8f0fe; }
+
+        #fav-edit-modal {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100000;
+            background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        }
+        .fav-edit-content {
+            background: #fff; border-radius: 16px; padding: 20px; width: 90%; max-width: 400px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .fav-edit-title { font-size: 16px; font-weight: 500; margin-bottom: 12px; color: #1e1e1e; }
+        #fav-edit-input {
+            width: 100%; min-height: 100px; box-sizing: border-box; padding: 10px;
+            font-size: 13px; border: 1px solid #ddd; border-radius: 8px; resize: vertical;
+            font-family: inherit; outline: none;
+        }
+        #fav-edit-input:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.2); }
+        .fav-edit-btns { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+        .fav-edit-cancel, .fav-edit-save { padding: 6px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; border: none; }
+        .fav-edit-cancel { background: #f1f3f4; color: #5f6368; }
+        .fav-edit-cancel:hover { background: #e8eaed; }
+        .fav-edit-save { background: #1a73e8; color: #fff; }
+        .fav-edit-save:hover { background: #1557b0; }
+
         /* --- 头部与布局 --- */
         #gemini-nav-header { padding: 16px 16px 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; cursor: move; }
 
@@ -235,6 +266,14 @@
         #gemini-nav-sidebar.theme-dark .action-btn { background: rgba(60, 64, 67, 0.9); color: #e3e3e3; }
         #gemini-nav-sidebar.theme-dark .action-btn:hover { background: #5f6368; }
         #gemini-nav-sidebar.theme-dark .menu-line { background: #e3e3e3; }
+        #gemini-nav-sidebar.theme-dark .fav-add-btn { color: #8ab4f8; border-color: #8ab4f8; }
+        #gemini-nav-sidebar.theme-dark .fav-add-btn:hover { background: #3c4043; }
+        #gemini-nav-sidebar.theme-dark .fav-edit-content { background: #2c2c2c; }
+        #gemini-nav-sidebar.theme-dark .fav-edit-title { color: #e3e3e3; }
+        #gemini-nav-sidebar.theme-dark #fav-edit-input { background: #1e1e1e; color: #e3e3e3; border-color: #444; }
+        #gemini-nav-sidebar.theme-dark #fav-edit-input:focus { border-color: #8ab4f8; }
+        #gemini-nav-sidebar.theme-dark .fav-edit-cancel { background: #3c4043; color: #e3e3e3; }
+        #gemini-nav-sidebar.theme-dark .fav-edit-save { background: #8ab4f8; color: #1e1e1e; }
 
         /* --- Theme Modal --- */
         #gemini-theme-modal {
@@ -421,8 +460,13 @@
         GM_setValue('ai_global_favorites', localLegacyData);
     }
 
-    // 初始化读取
+    // 初始化读取 + 数据格式迁移（从 string[] 升级到 {id,text}[]）
     let favorites = GM_getValue('ai_global_favorites', []);
+    if (favorites.length > 0 && typeof favorites[0] === 'string') {
+        // 旧格式 string[] → 新格式 {id,text}[]
+        favorites = favorites.map((text, idx) => ({ id: Date.now() + idx, text }));
+        GM_setValue('ai_global_favorites', favorites);
+    }
     const saveFavorites = () => GM_setValue('ai_global_favorites', favorites);
 
     // 自动隐藏逻辑 (保留本地存储，因为每个网站的布局偏好不同)
@@ -469,6 +513,14 @@
 
         if (!panelFav.classList.contains('active')) return;
         panelFav.replaceChildren();
+
+        // 新增按钮
+        const addBtn = document.createElement('div');
+        addBtn.className = 'fav-add-btn';
+        addBtn.textContent = '+ 新增收藏';
+        addBtn.onclick = () => showFavEditModal(null);
+        panelFav.append(addBtn);
+
         if (favorites.length === 0) {
             const empty = document.createElement('div');
             empty.style.cssText = 'color:#747775;text-align:center;margin-top:20px;font-size:12px;';
@@ -481,16 +533,56 @@
             item.className = 'gemini-nav-item';
             const txt = document.createElement('span');
             txt.className = 'item-text';
-            txt.textContent = fav;
-            item.onclick = () => fillInput(fav);
+            txt.textContent = fav.text;
+            item.onclick = () => fillInput(fav.text);
+            const editBtn = document.createElement('span');
+            editBtn.className = 'action-btn';
+            editBtn.textContent = '✏️';
+            editBtn.onclick = (e) => { e.stopPropagation(); showFavEditModal(i); };
             const delBtn = document.createElement('span');
             delBtn.className = 'action-btn';
             delBtn.textContent = '🗑️';
             delBtn.onclick = (e) => { e.stopPropagation(); favorites.splice(i, 1); saveFavorites(); renderFavorites(); };
-            item.append(txt, delBtn);
+            item.append(txt, editBtn, delBtn);
             panelFav.append(item);
         });
         if (searchInput.value) searchInput.dispatchEvent(new Event('input'));
+    }
+
+    // 编辑/新增收藏弹窗
+    function showFavEditModal(index) {
+        const existing = document.getElementById('fav-edit-modal');
+        if (existing) existing.remove();
+
+        const isEdit = index !== null;
+        const fav = isEdit ? favorites[index] : null;
+        const modal = document.createElement('div');
+        modal.id = 'fav-edit-modal';
+        modal.innerHTML = `
+            <div class="fav-edit-content">
+                <div class="fav-edit-title">${isEdit ? '编辑收藏' : '新增收藏'}</div>
+                <textarea id="fav-edit-input" placeholder="输入 Prompt 内容...">${fav ? fav.text : ''}</textarea>
+                <div class="fav-edit-btns">
+                    <button class="fav-edit-cancel">取消</button>
+                    <button class="fav-edit-save">保存</button>
+                </div>
+            </div>
+        `;
+        modal.querySelector('.fav-edit-cancel').onclick = () => modal.remove();
+        modal.querySelector('.fav-edit-save').onclick = () => {
+            const val = modal.querySelector('#fav-edit-input').value.trim();
+            if (!val) return;
+            if (isEdit) {
+                favorites[index].text = val;
+            } else {
+                favorites.unshift({ id: Date.now(), text: val });
+            }
+            saveFavorites();
+            renderFavorites();
+            modal.remove();
+        };
+        document.body.appendChild(modal);
+        modal.querySelector('#fav-edit-input').focus();
     }
 
     const lmarenaSelectors = [
@@ -889,8 +981,8 @@
             favBtn.onclick = (e) => {
                 e.stopPropagation();
                 favorites = GM_getValue('ai_global_favorites', []); // 保存前先同步
-                if (!favorites.includes(content)) {
-                    favorites.unshift(content); saveFavorites(); favBtn.textContent = '✅';
+                if (!favorites.some(f => f.text === content)) {
+                    favorites.unshift({ id: Date.now(), text: content }); saveFavorites(); favBtn.textContent = '✅';
                     setTimeout(() => favBtn.textContent = '⭐', 1000);
                 }
             };
