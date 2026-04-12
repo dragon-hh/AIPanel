@@ -4,6 +4,8 @@
 // @version      4.1.1
 // @description  为 Gemini、ChatGPT、Claude、LMSYS 添加历史对话索引、Prompt 收藏、智能隐藏，支持跨平台收藏互通，修复 LMSYS 目录生成问题。
 // @author       Chantec
+// @updateURL    https://raw.githubusercontent.com/dragon-hh/AIPanel/refs/heads/main/aiPanel.user.js
+// @downloadURL  https://raw.githubusercontent.com/dragon-hh/AIPanel/refs/heads/main/aiPanel.user.js
 // @match        https://gemini.google.com/*
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
@@ -537,7 +539,8 @@
             txt.textContent = fav.text;
             item.onclick = () => fillInput(fav.text);
             const editBtn = document.createElement('span');
-            editBtn.className = 'action-btn action-btn-left';
+            editBtn.className = 'action-btn';
+            editBtn.style.right = '26px';
             editBtn.textContent = '✏️';
             editBtn.onclick = (e) => { e.stopPropagation(); showFavEditModal(i); };
             const delBtn = document.createElement('span');
